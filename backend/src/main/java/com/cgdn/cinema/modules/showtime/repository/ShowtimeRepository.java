@@ -2,6 +2,7 @@ package com.cgdn.cinema.modules.showtime.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import com.cgdn.cinema.modules.showtime.entity.Showtime;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,4 +17,11 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     List<Showtime> findUpcomingByMovie(@Param("movieId") Long movieId,
                                        @Param("after") LocalDateTime after,
                                        @Param("status") int status);
+
+    @Query("""
+            select s from Showtime s join fetch s.room r
+            where s.id = :id and s.status = :status and r.status = :status and s.startTime > :after""")
+    Optional<Showtime> findUpcomingById(@Param("id") Long id,
+                                        @Param("after") LocalDateTime after,
+                                        @Param("status") int status);
 }

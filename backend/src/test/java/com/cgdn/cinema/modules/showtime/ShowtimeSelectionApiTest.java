@@ -9,20 +9,16 @@ import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import com.cgdn.cinema.IntegrationTest;
 import com.cgdn.cinema.common.constants.AppConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** SRS 6.2.1 trên dữ liệu mẫu db/seed: phim 1–4 đang chiếu, 5 sắp chiếu, 6 đã hết chiếu. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("h2")
+@IntegrationTest
 class ShowtimeSelectionApiTest {
 
     // Giá ghế thường SRS 6.8

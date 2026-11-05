@@ -19,6 +19,17 @@ spring:
     locations: classpath:db/migration,classpath:db/seed
   jackson:
     time-zone: Asia/Ho_Chi_Minh
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    template:
+      # thời gian chờ consumer trả kết quả giữ ghế
+      reply-timeout: 10s
+    listener:
+      simple:
+        default-requeue-rejected: false
 
 app:
   cors-origins: ${CORS_ORIGINS:http://localhost:5173}

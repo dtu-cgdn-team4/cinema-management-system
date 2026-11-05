@@ -3,7 +3,9 @@ package com.cgdn.cinema.exception;
 import com.cgdn.cinema.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -18,7 +20,8 @@ public class GlobalExceptionHandler {
         return toResponse(ex.getErrorCode(), ex.getMessage());
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
+            MissingRequestHeaderException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception ex) {
         return toResponse(ErrorCode.INVALID_REQUEST, ErrorCode.INVALID_REQUEST.getMessage());
     }

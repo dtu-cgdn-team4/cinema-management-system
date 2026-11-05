@@ -36,7 +36,8 @@ Chỉ thêm thư mục riêng khi module cần, ví dụ `booking/queue/` (xử 
 
 ## Chạy
 
-- MySQL: tạo database `cinema_db`, chép `.env.example` ở gốc repo thành `.env`, rồi `./mvnw spring-boot:run`.
-- Không có MySQL: `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2`.
-- Test: `./mvnw test` (dùng H2, chạy cả migration và dữ liệu mẫu).
+- Đầy đủ: cần MySQL (database `cinema_db`) và RabbitMQ. Chép `.env.example` ở gốc repo thành `.env`, rồi `./mvnw spring-boot:run`.
+- Chạy thử không cài MySQL và RabbitMQ: `./mvnw spring-boot:test-run -Dspring-boot.run.profiles=h2` (H2 trong bộ nhớ, broker AMQP nhúng Apache Qpid, có dữ liệu mẫu).
+- Test: `./mvnw test` (H2 và broker nhúng, chạy cả migration và dữ liệu mẫu).
+- WebSocket STOMP: `ws://localhost:8080/ws`, trạng thái ghế ở kênh `/topic/showtimes/{id}/seats`.
 - Swagger: http://localhost:8080/swagger-ui/index.html
