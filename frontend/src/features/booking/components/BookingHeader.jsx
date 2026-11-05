@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
-const STEPS = ['Chọn Suất Chiếu', 'Chọn Ghế', 'Bắp Nước', 'Thanh Toán'];
+// Figma có bước "Bắp Nước" nhưng bán combo ngoài phạm vi (Q&A #43); bước 3 là xác nhận đặt vé (SRS 6.2.3)
+const STEPS = ['Chọn Suất Chiếu', 'Chọn Ghế', 'Xác Nhận', 'Thanh Toán'];
 
 /** Thanh trên cùng của luồng đặt vé, `step` bắt đầu từ 1. */
 export default function BookingHeader({ step }) {

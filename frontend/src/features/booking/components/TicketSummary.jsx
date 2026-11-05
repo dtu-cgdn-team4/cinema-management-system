@@ -10,7 +10,17 @@ function Row({ label, children }) {
   );
 }
 
-export default function TicketSummary({ movie, date, showtime, error, onSubmit }) {
+/** Khung "Thông tin vé" bên phải các bước đặt vé; `children` hiện dưới thông tin suất chiếu. */
+export default function TicketSummary({
+  movie,
+  date,
+  showtime,
+  error,
+  onSubmit,
+  submitLabel = 'Tiếp tục chọn ghế →',
+  submitting = false,
+  children,
+}) {
   const isToday = date && date === toDateKey(new Date());
   return (
     <aside className="rounded-2xl border border-line bg-card p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] lg:sticky lg:top-6">
@@ -47,6 +57,8 @@ export default function TicketSummary({ movie, date, showtime, error, onSubmit }
         </div>
       </div>
 
+      {children}
+
       {error && (
         <p role="alert" className="mt-4 rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-xs text-red-300">
           {error}
@@ -56,9 +68,10 @@ export default function TicketSummary({ movie, date, showtime, error, onSubmit }
       <button
         type="button"
         onClick={onSubmit}
-        className="mt-5 w-full rounded-xl bg-gradient-to-r from-brand to-brand-dark py-3.5 text-sm font-extrabold uppercase text-white shadow-[0_10px_15px_-3px_rgba(234,56,77,0.25)] transition hover:brightness-110"
+        disabled={submitting}
+        className="mt-5 w-full rounded-xl bg-gradient-to-r from-brand to-brand-dark py-3.5 text-sm font-extrabold uppercase text-white shadow-[0_10px_15px_-3px_rgba(234,56,77,0.25)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
       >
-        Tiếp tục chọn ghế →
+        {submitting ? 'Đang giữ ghế…' : submitLabel}
       </button>
     </aside>
   );
