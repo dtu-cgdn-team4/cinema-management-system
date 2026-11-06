@@ -5,6 +5,8 @@ import {
   Mail,
   Calendar,
   Phone,
+  IdCard,
+  MapPin,
   Lock,
   Eye,
   EyeOff,
@@ -260,37 +262,114 @@ export const RegisterForm: React.FC = () => {
           </div>
         </div>
 
-        {/* Phone Number */}
+        {/* Row: CCCD (Optional) & Số điện thoại (Required) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* CCCD / CMND (Không bắt buộc) */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="idCard"
+                className="text-xs font-medium text-[#f5f2ed]"
+              >
+                CCCD / CMND
+              </label>
+              <span className="text-[10px] text-[#9d9ea5]">Không bắt buộc</span>
+            </div>
+            <div
+              className={`flex items-center gap-2.5 h-12 px-3.5 rounded-lg bg-[#17181b] border transition-colors ${
+                touched.idCard && errors.idCard
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-[#303135] focus-within:border-[#ca3538] focus-within:ring-1 focus-within:ring-[#ca3538]"
+              }`}
+            >
+              <IdCard className="w-4 h-4 text-[#9d9ea5] shrink-0" />
+              <input
+                id="idCard"
+                type="text"
+                name="idCard"
+                value={formData.idCard}
+                onChange={(e) => handleChange("idCard", e.target.value)}
+                onBlur={() => handleBlur("idCard")}
+                placeholder="Số CCCD (12 số)"
+                autoComplete="off"
+                disabled={isSubmitting}
+                className="w-full bg-transparent text-sm text-[#f5f2ed] placeholder-[#74767e] outline-none"
+              />
+            </div>
+            {touched.idCard && errors.idCard && (
+              <p className="text-xs text-red-500 mt-0.5">{errors.idCard}</p>
+            )}
+          </div>
+
+          {/* Số điện thoại (Bắt buộc) */}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="phoneNumber"
+              className="text-xs font-medium text-[#f5f2ed]"
+            >
+              Số điện thoại
+            </label>
+            <div
+              className={`flex items-center gap-2.5 h-12 px-3.5 rounded-lg bg-[#17181b] border transition-colors ${
+                touched.phoneNumber && errors.phoneNumber
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-[#303135] focus-within:border-[#ca3538] focus-within:ring-1 focus-within:ring-[#ca3538]"
+              }`}
+            >
+              <Phone className="w-4 h-4 text-[#9d9ea5] shrink-0" />
+              <input
+                id="phoneNumber"
+                type="tel"
+                name="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={(e) => handleChange("phoneNumber", e.target.value)}
+                onBlur={() => handleBlur("phoneNumber")}
+                placeholder="Nhập số điện thoại (10 chữ số)"
+                autoComplete="tel"
+                disabled={isSubmitting}
+                className="w-full bg-transparent text-sm text-[#f5f2ed] placeholder-[#74767e] outline-none"
+              />
+            </div>
+            {touched.phoneNumber && errors.phoneNumber && (
+              <p className="text-xs text-red-500 mt-0.5">{errors.phoneNumber}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Địa chỉ (Không bắt buộc) */}
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="phoneNumber"
-            className="text-xs font-medium text-[#f5f2ed]"
-          >
-            Số điện thoại
-          </label>
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="address"
+              className="text-xs font-medium text-[#f5f2ed]"
+            >
+              Địa chỉ
+            </label>
+            <span className="text-[10px] text-[#9d9ea5]">Không bắt buộc</span>
+          </div>
           <div
             className={`flex items-center gap-2.5 h-12 px-3.5 rounded-lg bg-[#17181b] border transition-colors ${
-              touched.phoneNumber && errors.phoneNumber
+              touched.address && errors.address
                 ? "border-red-500 ring-1 ring-red-500"
                 : "border-[#303135] focus-within:border-[#ca3538] focus-within:ring-1 focus-within:ring-[#ca3538]"
             }`}
           >
-            <Phone className="w-4 h-4 text-[#9d9ea5] shrink-0" />
+            <MapPin className="w-4 h-4 text-[#9d9ea5] shrink-0" />
             <input
-              id="phoneNumber"
-              type="tel"
-              name="phoneNumber"
-              value={formData.phoneNumber}
-              onChange={(e) => handleChange("phoneNumber", e.target.value)}
-              onBlur={() => handleBlur("phoneNumber")}
-              placeholder="Nhập số điện thoại (10 chữ số)"
-              autoComplete="tel"
+              id="address"
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={(e) => handleChange("address", e.target.value)}
+              onBlur={() => handleBlur("address")}
+              placeholder="Nhập địa chỉ liên hệ"
+              autoComplete="street-address"
               disabled={isSubmitting}
               className="w-full bg-transparent text-sm text-[#f5f2ed] placeholder-[#74767e] outline-none"
             />
           </div>
-          {touched.phoneNumber && errors.phoneNumber && (
-            <p className="text-xs text-red-500 mt-0.5">{errors.phoneNumber}</p>
+          {touched.address && errors.address && (
+            <p className="text-xs text-red-500 mt-0.5">{errors.address}</p>
           )}
         </div>
 

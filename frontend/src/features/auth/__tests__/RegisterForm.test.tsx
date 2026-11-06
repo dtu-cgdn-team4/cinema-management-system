@@ -47,11 +47,33 @@ describe("RegisterForm Component", () => {
     ).toBeInTheDocument();
   });
 
-  it("does NOT render CMND or Địa chỉ fields (per mentor requirement)", () => {
+  it("renders CCCD and Địa chỉ fields labeled as optional", () => {
     renderComponent();
 
-    expect(screen.queryByLabelText(/CMND/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Địa chỉ/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/CCCD \/ CMND/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Địa chỉ/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Không bắt buộc/i).length).toBe(2);
+  });
+
+  it("validates invalid CCCD and address format when provided", async () => {
+    renderComponent();
+
+    const idCardInput = screen.getByLabelText(/CCCD \/ CMND/i);
+    const addressInput = screen.getByLabelText(/Địa chỉ/i);
+
+    fireEvent.change(idCardInput, { target: { value: "123" } });
+    fireEvent.blur(idCardInput);
+
+    fireEvent.change(addressInput, { target: { value: "hn" } });
+    fireEvent.blur(addressInput);
+
+    const submitBtn = screen.getByRole("button", { name: /Đăng ký/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Số CCCD\/CMND không hợp lệ/i)).toBeInTheDocument();
+      expect(screen.getByText(/Địa chỉ phải có độ dài từ 5 đến 255 ký tự/i)).toBeInTheDocument();
+    });
   });
 
   it("displays client validation errors when submitting an empty form", async () => {

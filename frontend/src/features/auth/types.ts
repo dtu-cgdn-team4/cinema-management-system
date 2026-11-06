@@ -7,6 +7,8 @@ export interface RegisterFormInputs {
   phoneNumber: string;
   dateOfBirth: string;
   gender: GenderType;
+  idCard: string;
+  address: string;
   password: string;
   confirmPassword: string;
   agreeTerms: boolean;
@@ -20,6 +22,8 @@ export interface RegisterPayload {
   dateOfBirth: string;
   gender: GenderType;
   password: string;
+  idCard?: string;
+  address?: string;
 }
 
 export interface ApiResponse<T = unknown> {

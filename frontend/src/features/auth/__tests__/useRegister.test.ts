@@ -28,6 +28,8 @@ describe('useRegister hook', () => {
     expect(result.current.formData.email).toBe('');
     expect(result.current.formData.gender).toBe('MALE');
     expect(result.current.formData.phoneNumber).toBe('');
+    expect(result.current.formData.idCard).toBe('');
+    expect(result.current.formData.address).toBe('');
     expect(result.current.formData.password).toBe('');
     expect(result.current.formData.confirmPassword).toBe('');
     expect(result.current.formData.agreeTerms).toBe(false);
@@ -136,6 +138,73 @@ describe('useRegister hook', () => {
       password: 'SecurePass1',
     });
     expect(result.current.successMessage).toBe('Đăng ký thành công!');
+  });
+
+  it('validates optional idCard and address conditionally', () => {
+    const { result } = renderHook(() => useRegister());
+
+    // When empty, no errors
+    act(() => {
+      result.current.handleBlur('idCard');
+      result.current.handleBlur('address');
+    });
+    expect(result.current.errors.idCard).toBeUndefined();
+    expect(result.current.errors.address).toBeUndefined();
+
+    // When invalid, shows error
+    act(() => {
+      result.current.handleChange('idCard', '1234');
+      result.current.handleChange('address', 'abc');
+    });
+    expect(result.current.errors.idCard).toBe('Số CCCD/CMND không hợp lệ (gồm 12 số CCCD hoặc 9 số CMND).');
+    expect(result.current.errors.address).toBe('Địa chỉ phải có độ dài từ 5 đến 255 ký tự.');
+
+    // When valid, clears error
+    act(() => {
+      result.current.handleChange('idCard', '048202001234');
+      result.current.handleChange('address', '123 Hải Phòng, Đà Nẵng');
+    });
+    expect(result.current.errors.idCard).toBeUndefined();
+    expect(result.current.errors.address).toBeUndefined();
+  });
+
+  it('submits form with optional fields included in payload when provided', async () => {
+    vi.mocked(authApi.register).mockResolvedValueOnce({
+      code: 200,
+      message: 'Đăng ký thành công!',
+    });
+
+    const { result } = renderHook(() => useRegister());
+
+    act(() => {
+      result.current.handleChange('username', 'fulluser');
+      result.current.handleChange('fullName', 'Trần Thị B');
+      result.current.handleChange('email', 'tranb@cinema.com');
+      result.current.handleChange('phoneNumber', '0987654321');
+      result.current.handleChange('dateOfBirth', '1998-05-15');
+      result.current.handleChange('gender', 'FEMALE');
+      result.current.handleChange('idCard', '048202001234');
+      result.current.handleChange('address', '123 Nguyễn Văn Linh');
+      result.current.handleChange('password', 'SecurePass1');
+      result.current.handleChange('confirmPassword', 'SecurePass1');
+      result.current.handleChange('agreeTerms', true);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(authApi.register).toHaveBeenCalledWith({
+      username: 'fulluser',
+      fullName: 'Trần Thị B',
+      email: 'tranb@cinema.com',
+      phoneNumber: '0987654321',
+      dateOfBirth: '1998-05-15',
+      gender: 'FEMALE',
+      password: 'SecurePass1',
+      idCard: '048202001234',
+      address: '123 Nguyễn Văn Linh',
+    });
   });
 });
 

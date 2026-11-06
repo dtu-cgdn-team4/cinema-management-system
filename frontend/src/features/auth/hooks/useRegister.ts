@@ -17,6 +17,8 @@ const INITIAL_FORM_VALUES: RegisterFormInputs = {
   phoneNumber: '',
   dateOfBirth: '',
   gender: 'MALE',
+  idCard: '',
+  address: '',
   password: '',
   confirmPassword: '',
   agreeTerms: false,
@@ -25,6 +27,7 @@ const INITIAL_FORM_VALUES: RegisterFormInputs = {
 // Regex patterns
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^(0[3|5|7|8|9])[0-9]{8}$/;
+const ID_CARD_REGEX = /^(\d{9}|\d{12})$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
@@ -80,6 +83,24 @@ export const useRegister = () => {
         if (!strVal) return 'Vui lòng nhập số điện thoại.';
         if (!PHONE_REGEX.test(strVal)) {
           return 'Số điện thoại không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09).';
+        }
+        return undefined;
+      }
+
+      case 'idCard': {
+        const strVal = String(value || '').trim();
+        if (!strVal) return undefined; // Tùy chọn (Optional)
+        if (!ID_CARD_REGEX.test(strVal)) {
+          return 'Số CCCD/CMND không hợp lệ (gồm 12 số CCCD hoặc 9 số CMND).';
+        }
+        return undefined;
+      }
+
+      case 'address': {
+        const strVal = String(value || '').trim();
+        if (!strVal) return undefined; // Tùy chọn (Optional)
+        if (strVal.length < 5 || strVal.length > 255) {
+          return 'Địa chỉ phải có độ dài từ 5 đến 255 ký tự.';
         }
         return undefined;
       }
@@ -229,6 +250,8 @@ export const useRegister = () => {
       dateOfBirth: currentValues.dateOfBirth,
       gender: currentValues.gender,
       password: currentValues.password,
+      ...(currentValues.idCard?.trim() ? { idCard: currentValues.idCard.trim() } : {}),
+      ...(currentValues.address?.trim() ? { address: currentValues.address.trim() } : {}),
     };
 
     try {
