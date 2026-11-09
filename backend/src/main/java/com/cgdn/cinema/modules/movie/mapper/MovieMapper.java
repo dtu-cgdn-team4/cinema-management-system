@@ -12,6 +12,6 @@ public final class MovieMapper {
     public static MovieResponse toResponse(Movie m) {
         return new MovieResponse(m.getId(), m.getTitle(), m.getDuration(), m.getAgeRating(),
                 m.getGenres().stream().map(Genre::getName).toList(),
-                m.getReleaseDate(), m.getEndDate(), m.getPosterUrl());
+                m.getReleaseDate(), m.getEndDate(), m.getPosterUrl(), m.getTrailerUrl(), m.getDescription());
     }
 }

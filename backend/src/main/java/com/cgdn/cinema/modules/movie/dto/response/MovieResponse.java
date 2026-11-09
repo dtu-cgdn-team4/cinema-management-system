@@ -12,5 +12,7 @@ public record MovieResponse(
         List<String> genres,
         LocalDate releaseDate,
         LocalDate endDate,
-        String posterUrl) {
+        String posterUrl,
+        String trailerUrl,
+        String description) {
 }
