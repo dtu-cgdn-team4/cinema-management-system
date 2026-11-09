@@ -1,21 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Info, Loader2, Play, RefreshCw, X } from 'lucide-react';
 import { errorMessage } from '../../../services/apiClient';
 import { subscribe } from '../../../services/socketClient';
 import { formatVnd, toDateKey } from '../../../utils/format';
 import { getSeatMap, holdSeats } from '../api/seatApi';
 import BookingHeader from '../components/BookingHeader';
 import HoldCountdown from '../components/HoldCountdown';
+import MovieBanner from '../components/MovieBanner';
 import SeatMap from '../components/SeatMap';
-import SectionCard from '../components/SectionCard';
 import TicketSummary from '../components/TicketSummary';
 import { seatCountError } from '../utils/seatCountError';
 
-const TYPE_NAME = { THUONG: 'Ghế thường', VIP: 'Ghế VIP' };
+const TYPE_NAME = { THUONG: 'Tiêu chuẩn', VIP: 'Ghế VIP' };
+const TYPE_SAMPLE = {
+  THUONG: ['01', 'border-zinc-300/70 text-white'],
+  VIP: ['VIP', 'border-warn/70 text-warn'],
+};
+const AGE_NOTE = {
+  P: 'Phim dành cho mọi lứa tuổi.',
+  K: 'Phim dành cho khán giả dưới 13 tuổi, có người bảo hộ đi kèm.',
+  T13: 'Phim dành cho khán giả từ đủ 13 tuổi trở lên.',
+  T16: 'Phim dành cho khán giả từ đủ 16 tuổi trở lên.',
+  T18: 'Phim dành cho khán giả từ đủ 18 tuổi trở lên.',
+};
+const BANNER_BUTTON =
+  'flex items-center gap-2 whitespace-nowrap rounded-xl border border-line bg-card px-4 py-2 text-xs font-medium text-zinc-200 transition hover:border-white/20 hover:text-white';
 
 /**
  * SRS 6.2.2 Đặt vé – Chọn ghế. Sơ đồ lấy qua REST rồi cập nhật theo WebSocket (architecture.md, bước 1 và 4).
- * Bấm Tiếp tục thì giữ ghế 10 phút ở server.
+ * Bấm Tiếp tục thì giữ ghế 10 phút ở server; chỉ thành viên đã đăng nhập mới giữ được.
  */
 export default function SeatSelectionPage() {
   const { showtimeId } = useParams();
@@ -33,7 +47,7 @@ export default function SeatSelectionPage() {
   selectedRef.current = selected;
   const submittingRef = useRef(false);
 
-  /** keepSelection: giữ ghế đang chọn (bỏ ghế vừa có người); không thì chọn lại ghế phiên này đang giữ. */
+  /** keepSelection: giữ ghế đang chọn (bỏ ghế vừa có người); không thì chọn lại ghế người này đang giữ. */
   const load = useCallback(
     (keepSelection = false) =>
       getSeatMap(showtimeId).then(
@@ -116,7 +130,7 @@ export default function SeatSelectionPage() {
     submittingRef.current = true;
     try {
       const hold = await holdSeats(showtimeId, selected.map((s) => s.id));
-      navigate(`/dat-ve/suat-chieu/${showtimeId}/xac-nhan`, {
+      navigate(`/dat-ve/suat-chieu/${showtimeId}/thanh-toan`, {
         state: { hold, movie: seatMap.movie, showtime: seatMap.showtime },
       });
     } catch (err) {
@@ -127,20 +141,27 @@ export default function SeatSelectionPage() {
     }
   };
 
+  const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
+
   if (!seatMap) {
     return (
       <div className="min-h-screen">
         <BookingHeader step={2} />
-        <main className="mx-auto max-w-[1216px] px-4 py-10 text-sm text-muted">
+        <main className="mx-auto flex max-w-[1216px] flex-col items-center gap-3 px-4 py-24 text-sm text-muted">
           {loadError ? (
             <>
-              <p role="alert" className="text-red-300">{loadError}</p>
-              <Link to="/dat-ve" className="mt-3 inline-block text-white underline">
+              <p role="alert" className="text-red-300">
+                {loadError}
+              </p>
+              <Link to="/dat-ve" className="text-white underline">
                 Chọn suất chiếu khác
               </Link>
             </>
           ) : (
-            'Đang tải sơ đồ ghế…'
+            <>
+              <Loader2 size={32} className="animate-spin text-brand" />
+              Đang tải sơ đồ ghế…
+            </>
           )}
         </main>
       </div>
@@ -148,7 +169,7 @@ export default function SeatSelectionPage() {
   }
 
   const { movie, showtime, prices, maxSeats, rows } = seatMap;
-  const byType = Object.entries(
+  const typeCounts = Object.entries(
     selected.reduce((acc, s) => ({ ...acc, [s.type]: (acc[s.type] ?? 0) + 1 }), {}),
   );
   const total = selected.reduce((sum, s) => sum + prices[s.type], 0);
@@ -157,16 +178,43 @@ export default function SeatSelectionPage() {
     <div className="min-h-screen">
       <BookingHeader step={2} />
 
-      <main className="mx-auto max-w-[1216px] px-4 py-8">
-        <Link to={`/dat-ve?phim=${movie.id}`} className="text-xs text-muted hover:text-white">
-          ← Quay lại chọn suất chiếu
+      <MovieBanner movie={movie}>
+        <Link to="/dat-ve" className={BANNER_BUTTON}>
+          <RefreshCw size={14} />
+          Chọn phim khác
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-bold text-white">Chọn ghế</h1>
+        {movie.trailerUrl && (
+          <a href={movie.trailerUrl} target="_blank" rel="noreferrer" className={BANNER_BUTTON}>
+            <Play size={14} className="fill-brand text-brand" />
+            Xem Trailer
+          </a>
+        )}
+      </MovieBanner>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_384px]">
-          <div className="min-w-0 space-y-5">
-            <SectionCard title="Chọn ghế của bạn" aside={showtime.room.name}>
-              <label className="mb-6 flex flex-wrap items-center gap-3 text-sm text-zinc-300">
+      <main className="mx-auto max-w-[1216px] px-4 py-8 lg:px-0">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_384px]">
+          <div className="min-w-0">
+            <Link to={`/dat-ve?phim=${movie.id}`} className="flex items-center gap-1.5 text-xs text-muted hover:text-white">
+              <ArrowLeft size={14} />
+              Quay lại chọn suất chiếu
+            </Link>
+
+            <section className="mt-4 rounded-2xl border border-line bg-surface p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 font-display text-base font-bold uppercase text-white">
+                    <span className="h-2 w-2 rounded-full bg-brand" />
+                    Chọn ghế của bạn
+                  </h2>
+                  <p className="mt-1.5 text-xs text-muted">Chạm vào ghế trống để chọn hoặc bỏ chọn.</p>
+                </div>
+                <div className="text-right text-xs">
+                  <p className="font-bold text-info">2D</p>
+                  <p className="mt-1.5 text-muted">{showtime.room.name}</p>
+                </div>
+              </div>
+
+              <label className="mb-5 mt-4 flex flex-wrap items-center gap-3 text-xs text-zinc-300">
                 Số lượng ghế
                 <select
                   value={quantity}
@@ -174,7 +222,7 @@ export default function SeatSelectionPage() {
                     setError(null);
                     setQuantity(Number(e.target.value));
                   }}
-                  className="rounded-xl border border-line bg-surface px-4 py-2 text-sm text-white outline-none focus:border-brand"
+                  className="rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-semibold text-white outline-none focus:border-brand"
                 >
                   <option value={0}>-- Chọn số lượng --</option>
                   {Array.from({ length: maxSeats }, (_, i) => i + 1).map((n) => (
@@ -184,69 +232,96 @@ export default function SeatSelectionPage() {
                   ))}
                 </select>
                 {quantity > 0 && (
-                  <span className="text-xs text-muted">
+                  <span className="text-muted">
                     Đã chọn {selected.length}/{quantity}
                   </span>
                 )}
               </label>
 
-              <SeatMap rows={rows} selectedIds={new Set(selected.map((s) => s.id))} onToggle={toggle} />
-            </SectionCard>
+              <SeatMap rows={rows} selectedIds={selectedIds} onToggle={toggle} />
+            </section>
 
-            <div className="flex flex-wrap gap-x-8 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4 text-xs text-muted">
+            <div className="mt-4 grid gap-4 rounded-2xl border border-line bg-surface p-[18px] sm:grid-cols-2">
               {Object.entries(TYPE_NAME).map(([type, name]) => (
-                <span key={type}>
-                  <span className="font-semibold text-white">{name}</span> {formatVnd(prices[type])} / ghế
-                </span>
+                <div key={type} className="flex items-center gap-3">
+                  <span
+                    className={`grid h-[30px] w-9 place-items-center rounded-md border bg-card text-[11px] font-bold ${TYPE_SAMPLE[type][1]}`}
+                  >
+                    {TYPE_SAMPLE[type][0]}
+                  </span>
+                  <span>
+                    <span className="block text-xs font-bold text-white">{name}</span>
+                    <span className="block text-[11px] text-muted">{formatVnd(prices[type])} / ghế</span>
+                  </span>
+                </div>
               ))}
             </div>
-            <p className="text-xs text-subtle">
-              ⓘ Không để trống 1 ghế lẻ sát ghế bạn chọn (đầu hàng và lối đi tính là biên). Mỗi lần đặt tối đa {maxSeats}{' '}
-              ghế.
+
+            <p className="mt-4 flex items-center gap-2 pl-1 text-xs text-muted">
+              <Info size={14} className="shrink-0" />
+              Vui lòng không để trống 1 ghế giữa các ghế đã chọn. Mỗi lần đặt tối đa {maxSeats} ghế.
             </p>
           </div>
 
-          <div>
+          <div className="lg:sticky lg:top-6 lg:self-start">
             <TicketSummary
+              title="Thông Tin Vé Đặt"
+              badge="Bước 2 / 3"
               movie={movie}
+              cinemaName={showtime.cinemaName}
               date={toDateKey(showtime.startTime)}
               showtime={showtime}
               error={error}
               onSubmit={submit}
-              submitLabel="Tiếp tục →"
+              submitLabel="Tiếp tục"
               submitting={submitting}
+              caption="Kiểm tra thông tin và thanh toán ở bước tiếp theo."
             >
-              <div className="mt-4 space-y-3 text-xs">
-                <p className="font-semibold text-white">Ghế đã chọn</p>
-                {selected.length ? (
-                  <ul className="flex flex-wrap gap-2">
+              <div className="mt-5 text-xs">
+                <div className="flex justify-between gap-3">
+                  <p className="font-bold text-white">Ghế đã chọn</p>
+                  {selected.length > 0 && (
+                    <p className="text-muted">
+                      {selected.length} vé • {typeCounts.map(([type]) => TYPE_NAME[type]).join(', ')}
+                    </p>
+                  )}
+                </div>
+
+                {selected.length > 0 ? (
+                  <ul className="mt-3 flex flex-wrap gap-2">
                     {selected.map((s) => (
                       <li key={s.id}>
                         <button
                           type="button"
                           onClick={() => toggle(s)}
                           aria-label={`Bỏ chọn ghế ${s.label}`}
-                          className="rounded-md border border-brand/60 px-2 py-1 font-bold text-brand hover:bg-brand/10"
+                          className="flex items-center gap-1.5 rounded-md border border-brand/50 bg-brand/10 px-2.5 py-1.5 font-bold text-brand hover:bg-brand/20"
                         >
-                          {s.label} ✕
+                          {s.label}
+                          <X size={12} strokeWidth={3} />
                         </button>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-muted">Chưa chọn ghế nào.</p>
+                  <p className="mt-3 text-muted">Chưa chọn ghế nào.</p>
                 )}
-                {byType.map(([type, count]) => (
-                  <div key={type} className="flex justify-between text-muted">
+
+                {typeCounts.map(([type, count]) => (
+                  <div key={type} className="mt-3 flex justify-between text-muted">
                     <span>
-                      {TYPE_NAME[type]}: {count} × {formatVnd(prices[type])}
+                      {count} × {formatVnd(prices[type])}
                     </span>
-                    <span className="text-white">{formatVnd(count * prices[type])}</span>
+                    <span className="font-semibold text-white">{formatVnd(count * prices[type])}</span>
                   </div>
                 ))}
-                <div className="flex items-end justify-between border-t border-line pt-3">
-                  <span className="text-muted">Tổng cộng</span>
-                  <span className="text-2xl font-extrabold text-white">{formatVnd(total)}</span>
+
+                <div className="mt-4 border-t border-line pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Tổng cộng</span>
+                    <span className="font-display text-[26px] font-bold leading-none text-white">{formatVnd(total)}</span>
+                  </div>
+                  <p className="mt-1.5 text-right text-[10px] text-muted">Đã bao gồm VAT</p>
                 </div>
               </div>
             </TicketSummary>
@@ -254,6 +329,10 @@ export default function SeatSelectionPage() {
             {seatMap.holdSecondsLeft != null && (
               <HoldCountdown seconds={seatMap.holdSecondsLeft} onExpire={onHoldExpired} />
             )}
+
+            <p className="mt-4 text-center text-[11px] text-subtle">
+              {movie.ageRating} • {AGE_NOTE[movie.ageRating]}
+            </p>
           </div>
         </div>
       </main>

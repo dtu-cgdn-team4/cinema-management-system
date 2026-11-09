@@ -10,8 +10,8 @@ export default function AppRoutes() {
       <Route path="/dat-ve" element={<ShowtimeSelectionPage />} />
       <Route path="/dat-ve/suat-chieu/:showtimeId/chon-ghe" element={<SeatSelectionPage />} />
       <Route
-        path="/dat-ve/suat-chieu/:showtimeId/xac-nhan"
-        element={<p className="p-10 text-muted">Đã giữ ghế. Màn hình xác nhận đặt vé: làm ở task 6.2.1.3.</p>}
+        path="/dat-ve/suat-chieu/:showtimeId/thanh-toan"
+        element={<p className="p-10 text-muted">Đã giữ ghế. Màn hình thanh toán: làm ở task sau.</p>}
       />
     </Routes>
   );
