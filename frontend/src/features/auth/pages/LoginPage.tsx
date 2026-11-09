@@ -9,21 +9,21 @@ export const LoginPage: React.FC = () => {
   const [showLangMenu, setShowLangMenu] = useState(false);
 
   return (
-    <div className="min-h-screen w-full bg-[#0b0e14] flex flex-col lg:flex-row overflow-x-hidden">
+    <div className="h-screen w-full bg-[#0b0e14] flex flex-col lg:flex-row overflow-hidden">
       {/* LEFT SIDE: Cinema Mood Visual Banner */}
-      <div className="w-full lg:w-1/2 hidden md:block relative">
+      <div className="w-full lg:w-1/2 hidden lg:block relative h-full overflow-hidden">
         <CinemaHeroBanner />
       </div>
 
       {/* RIGHT SIDE: Auth Form Container */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-14 relative z-20 min-h-screen">
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-4 sm:p-6 lg:px-12 lg:py-6 relative z-20 h-full overflow-y-auto lg:overflow-hidden">
         {/* Top Navigation Bar: Back & Language Switcher */}
-        <div className="flex items-center justify-between w-full max-w-[460px] mx-auto mb-6">
+        <div className="flex items-center justify-between w-full max-w-[420px] mx-auto mb-2">
           <Link
             to="/"
             className="flex items-center gap-2 text-xs font-medium text-[#7d8697] hover:text-white transition-colors group"
           >
-            <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
             <span>Về trang chủ</span>
           </Link>
 
@@ -33,13 +33,13 @@ export const LoginPage: React.FC = () => {
               onClick={() => setShowLangMenu(!showLangMenu)}
               className="flex items-center gap-1.5 text-xs text-[#7d8697] hover:text-white transition-colors py-1 px-2 rounded-lg hover:bg-white/5"
             >
-              <Globe size={14} />
+              <Globe size={13} />
               <span>{language === 'vi' ? 'Tiếng Việt' : 'English'}</span>
-              <ChevronDown size={13} />
+              <ChevronDown size={12} />
             </button>
 
             {showLangMenu && (
-              <div className="absolute right-0 mt-2 w-32 bg-[#161b24] border border-[#232936] rounded-xl shadow-xl py-1 z-30">
+              <div className="absolute right-0 mt-1.5 w-32 bg-[#161b24] border border-[#232936] rounded-xl shadow-xl py-1 z-30">
                 <button
                   onClick={() => {
                     setLanguage('vi');
@@ -68,13 +68,13 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Center: Main Form */}
-        <div className="my-auto py-4">
+        <div className="my-auto py-1">
           <LoginForm />
         </div>
 
         {/* Bottom Footer Links */}
-        <div className="w-full max-w-[460px] mx-auto pt-8 text-center sm:text-left">
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-2 text-[11px] text-[#636c7e] mb-2">
+        <div className="w-full max-w-[420px] mx-auto pt-3 text-center sm:text-right">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-3 gap-y-1 text-[11px] text-[#636c7e] mb-1">
             <Link to="/help" className="hover:text-[#9ba3b2] transition-colors">
               Trợ giúp
             </Link>
@@ -87,7 +87,7 @@ export const LoginPage: React.FC = () => {
               Chính sách bảo mật
             </Link>
           </div>
-          <p className="text-[11px] text-[#4d5668] text-center sm:text-left">
+          <p className="text-[10px] text-[#4d5668] text-center sm:text-right">
             © 2026 Galaxy Cinema. Mọi quyền được bảo lưu.
           </p>
         </div>

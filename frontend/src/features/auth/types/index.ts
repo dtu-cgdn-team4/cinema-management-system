@@ -2,15 +2,19 @@ export interface User {
   id: number;
   email: string;
   fullName: string;
-  phone?: string;
-  role: 'ROLE_CUSTOMER' | 'ROLE_STAFF' | 'ROLE_ADMIN';
+  phone?: string | null;
+  role: 'ROLE_USER' | 'ROLE_STAFF' | 'ROLE_ADMIN';
   avatarUrl?: string;
 }
 
 export interface AuthResponse {
   token: string;
-  refreshToken?: string;
+  expiresAt: string;
   user: User;
+}
+
+export interface AuthConfig {
+  googleClientId: string;
 }
 
 export interface LoginFormData {

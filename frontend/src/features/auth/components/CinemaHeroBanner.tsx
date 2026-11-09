@@ -50,34 +50,37 @@ export const CinemaHeroBanner: React.FC = () => {
       </div>
 
       {/* Center-Bottom: Tagline & Description */}
-      <div className="relative z-10 max-w-xl mt-auto pb-10">
+      <div className="relative z-10 max-w-xl mt-auto pb-6">
         {/* Red Accent Label */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2.5 mb-3.5">
           <span className="w-5 h-[2px] bg-[#e50914] inline-block"></span>
-          <span className="text-[11px] font-bold tracking-[0.2em] text-[#d63031] uppercase">
+          <span className="text-[11px] font-bold tracking-[0.25em] text-[#e50914] uppercase">
             ĐIỆN ẢNH, THEO CÁCH CỦA BẠN
           </span>
         </div>
 
         {/* Main Bold Title */}
-        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.08] mb-5">
+        <h2 className="text-4xl sm:text-5xl lg:text-[56px] font-black text-white tracking-tight leading-[1.08] mb-4">
           Mọi cảm xúc.<br />
           Một màn ảnh.
         </h2>
 
         {/* Subtitle */}
-        <p className="text-sm md:text-base text-[#9ba3b2] font-normal leading-relaxed max-w-md">
+        <p className="text-xs sm:text-sm text-[#8e95a5] font-normal leading-relaxed max-w-md">
           Từ những thước phim đầu tiên đến dư âm cuối cùng. Khám phá, đặt vé và tận hưởng thế giới điện ảnh cùng Lumière.
         </p>
       </div>
 
       {/* Bottom Footer Info */}
-      <div className="relative z-10 flex items-center justify-between pt-6 border-t border-white/10 text-[11px] tracking-wider text-[#636c7e]">
+      <div className="relative z-10 flex items-center justify-between pt-5 border-t border-white/10 text-[11px] tracking-wider text-[#636c7e]">
         <div className="flex items-center gap-2">
-          <Film size={14} className="text-[#8892a4]" />
+          {/* Custom Screen Icon tương tự SVG ảnh */}
+          <svg className="w-3.5 h-3.5 text-[#7d8697]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
           <span>Màn ảnh lớn. Trải nghiệm khác biệt.</span>
         </div>
-        <div className="uppercase font-medium text-[#7d8697]">
+        <div className="uppercase font-medium text-[#7d8697] tracking-widest text-[10px]">
           TỪ NĂM 2024
         </div>
       </div>
