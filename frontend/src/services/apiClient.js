@@ -13,4 +13,8 @@ apiClient.interceptors.request.use((config) => {
 // Backend trả ApiResponse<T>: lấy thẳng phần data
 apiClient.interceptors.response.use((res) => res.data?.data ?? res.data);
 
+/** Thông báo tiếng Việt từ ApiResponse lỗi, hoặc câu chung khi không gọi được server. */
+export const errorMessage = (err) =>
+  err?.response?.data?.message ?? 'Không kết nối được máy chủ, vui lòng thử lại.';
+
 export default apiClient;
