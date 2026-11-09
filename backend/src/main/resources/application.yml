@@ -33,3 +33,4 @@ spring:
 
 app:
   cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+  jwt-secret: ${JWT_SECRET}

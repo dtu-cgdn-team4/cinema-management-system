@@ -30,9 +30,9 @@ public class SeatHold {
     @Column(name = "ghe_id")
     private Long seatId;
 
-    /** Mã phiên trình duyệt, tạm thay tài khoản cho tới khi có đăng nhập. */
-    @Column(name = "ma_phien")
-    private String sessionId;
+    /** Người giữ ghế; null khi khách vãng lai mua tại quầy. */
+    @Column(name = "nguoi_dung_id")
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai_ghe")

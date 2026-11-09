@@ -8,7 +8,7 @@ import com.cgdn.cinema.modules.showtime.dto.response.ShowtimeResponse;
 
 /**
  * Sơ đồ ghế của một suất (SRS 6.2.2).
- * holdSecondsLeft: số giây còn lại của các ghế phiên này đang giữ, null nếu không giữ ghế nào.
+ * holdSecondsLeft: số giây còn lại của các ghế người xem đang giữ, null nếu không giữ ghế nào.
  */
 public record SeatMapResponse(
         MovieResponse movie,
@@ -25,7 +25,7 @@ public record SeatMapResponse(
     public record Cell(Long id, String label, int number, int column, SeatType type, Availability status) {
     }
 
-    /** MINE: ghế phiên hiện tại đang giữ. TAKEN: người khác đang giữ, chờ thanh toán hoặc đã thanh toán. */
+    /** MINE: ghế người xem đang giữ. TAKEN: người khác đang giữ hoặc đã thanh toán. */
     public enum Availability {
         AVAILABLE, TAKEN, MINE
     }

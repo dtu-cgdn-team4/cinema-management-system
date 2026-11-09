@@ -15,8 +15,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import com.cgdn.cinema.IntegrationTest;
+import com.cgdn.cinema.TestTokens;
+import com.cgdn.cinema.common.enums.Role;
 import com.cgdn.cinema.common.enums.SeatStatus;
-import com.cgdn.cinema.modules.booking.controller.SeatController;
 import com.cgdn.cinema.modules.booking.entity.SeatHold;
 import com.cgdn.cinema.modules.booking.repository.SeatHoldRepository;
 import com.cgdn.cinema.modules.booking.scheduler.SeatHoldReleaseJob;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
@@ -40,14 +42,15 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 /**
- * SRS 6.2.2 trên dữ liệu mẫu: mọi suất có ghế đã bán A01, A02, D05, D07, F08, F09.
+ * SRS 6.2.2 trên dữ liệu mẫu: mọi suất có ghế đã bán A01, A02, D05, D07, F08, F09; người dùng 1, 2 là khách, 3 là nhân viên.
  * Giữ ghế đi qua RabbitMQ (broker nhúng) và commit thật, nên mỗi test tự xóa ghế đã giữ.
  */
 @IntegrationTest
 class SeatSelectionApiTest {
 
-    private static final String ME = "phien-cua-toi";
-    private static final String OTHER = "phien-khac";
+    private static final long ME = 1L;
+    private static final long OTHER = 2L;
+    private static final long STAFF = 3L;
 
     @Autowired
     private MockMvc mvc;
@@ -80,7 +83,7 @@ class SeatSelectionApiTest {
     @AfterEach
     void releaseTestHolds() {
         seatHoldRepository.deleteAllInBatch(seatHoldRepository.findAll().stream()
-                .filter(h -> List.of(ME, OTHER).contains(h.getSessionId())).toList());
+                .filter(h -> h.getUserId() != null).toList());
     }
 
     @Test
@@ -98,7 +101,7 @@ class SeatSelectionApiTest {
         SeatHold expired = new SeatHold();
         expired.setShowtimeId(showtimeId);
         expired.setSeatId(seatIds.get("H12"));
-        expired.setSessionId(OTHER);
+        expired.setUserId(OTHER);
         expired.setStatus(SeatStatus.DANG_GIU);
         expired.setExpiresAt(LocalDateTime.now().minusMinutes(1));
         seatHoldRepository.save(expired);
@@ -207,29 +210,59 @@ class SeatSelectionApiTest {
                 .andExpect(jsonPath("$.errorCode").value("SEAT_COUNT_INVALID"));
         hold(ME, "B04", "B05", "B06", "B07", "B08", "B09", "C01", "C02", "C03")
                 .andExpect(jsonPath("$.errorCode").value("SEAT_COUNT_INVALID"));
+        hold(ME, "B04", "B04").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST"));
+        hold(ME, "B04", "B04", "B04", "B04", "B04", "B04", "B04", "B04", "B04")
+                .andExpect(jsonPath("$.errorCode").value("SEAT_COUNT_INVALID"));
     }
 
     @Test
-    void rejectsMissingSessionAndUnknownShowtime() throws Exception {
-        mvc.perform(post("/api/v1/showtimes/" + showtimeId + "/seats/hold")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\":[1]}"))
-                .andExpect(status().isBadRequest());
+    void holdRequiresCustomerLogin() throws Exception {
+        postHold(null).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+        postHold("Bearer khong-phai-jwt").andExpect(status().isUnauthorized());
+        postHold(TestTokens.bearer(ME, Role.KHACH_HANG, "khoa-khac-khoa-khac-khoa-khac-khoa-khac"))
+                .andExpect(status().isUnauthorized());
+        postHold(TestTokens.bearer(STAFF, Role.NHAN_VIEN)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
+    }
+
+    @Test
+    void seatMapIsPublicAndIgnoresBadToken() throws Exception {
+        hold(ME, "B04", "B05").andExpect(status().isOk());
+
+        String url = "/api/v1/showtimes/" + showtimeId + "/seats";
+        JsonNode anonymous = data(mvc.perform(get(url)).andExpect(status().isOk()));
+        JsonNode badToken = data(mvc.perform(get(url).header(HttpHeaders.AUTHORIZATION, "Bearer het-han"))
+                .andExpect(status().isOk()));
+        assertThat(seatStatus(anonymous, "B04")).isEqualTo("TAKEN");
+        assertThat(seatStatus(badToken, "B04")).isEqualTo("TAKEN");
+    }
+
+    @Test
+    void unknownShowtimeReturns404() throws Exception {
         mvc.perform(get("/api/v1/showtimes/999999/seats"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("SHOWTIME_NOT_FOUND"));
     }
 
-    private ResultActions hold(String session, String... labels) throws Exception {
+    private ResultActions postHold(String authorization) throws Exception {
+        var request = post("/api/v1/showtimes/" + showtimeId + "/seats/hold")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"seatIds\":[1]}");
+        return mvc.perform(authorization == null ? request : request.header(HttpHeaders.AUTHORIZATION, authorization));
+    }
+
+    private ResultActions hold(long userId, String... labels) throws Exception {
         List<Long> ids = List.of(labels).stream().map(seatIds::get).toList();
         return mvc.perform(post("/api/v1/showtimes/" + showtimeId + "/seats/hold")
-                .header(SeatController.SESSION_HEADER, session)
+                .header(HttpHeaders.AUTHORIZATION, TestTokens.bearer(userId, Role.KHACH_HANG))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("seatIds", ids))));
     }
 
-    private JsonNode seatMap(String session) throws Exception {
+    private JsonNode seatMap(long userId) throws Exception {
         return data(mvc.perform(get("/api/v1/showtimes/" + showtimeId + "/seats")
-                .header(SeatController.SESSION_HEADER, session)).andExpect(status().isOk()));
+                .header(HttpHeaders.AUTHORIZATION, TestTokens.bearer(userId, Role.KHACH_HANG))).andExpect(status().isOk()));
     }
 
     private static String seatStatus(JsonNode map, String label) {

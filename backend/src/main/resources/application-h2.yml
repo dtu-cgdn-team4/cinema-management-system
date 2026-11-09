@@ -1,6 +1,10 @@
-# Chạy thử không cần MySQL: mvnw spring-boot:run -Dspring-boot.run.profiles=h2
+# Chạy thử không cần MySQL, RabbitMQ: mvnw spring-boot:test-run -Dspring-boot.run.profiles=h2
 spring:
   datasource:
     url: jdbc:h2:mem:cinema_db;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
     username: sa
     password:
+
+app:
+  # Chỉ dùng khi phát triển; chạy thật lấy JWT_SECRET từ .env
+  jwt-secret: dev-only-secret-khong-dung-khi-chay-that

@@ -22,7 +22,6 @@ import com.cgdn.cinema.modules.booking.dto.response.SeatHoldResponse;
 import com.cgdn.cinema.modules.booking.dto.response.SeatMapResponse;
 import com.cgdn.cinema.modules.booking.dto.response.SeatMapResponse.Availability;
 import com.cgdn.cinema.modules.booking.entity.SeatHold;
-import com.cgdn.cinema.modules.booking.queue.SeatHoldCommand;
 import com.cgdn.cinema.modules.booking.queue.SeatHoldProducer;
 import com.cgdn.cinema.modules.booking.repository.SeatHoldRepository;
 import com.cgdn.cinema.modules.movie.service.MovieService;
@@ -51,12 +50,12 @@ public class SeatHoldService {
     private final PricingService pricingService;
     private final Clock clock;
 
-    /** Kết quả ghi giữ ghế: released là ghế được nhả (giữ cũ của phiên này, giữ đã quá hạn) để báo AVAILABLE. */
+    /** Kết quả ghi giữ ghế: released là ghế được nhả (giữ cũ của người này, giữ đã quá hạn) để báo AVAILABLE. */
     public record HoldOutcome(SeatHoldResponse response, Set<Long> released) {
     }
 
-    /** Bước 1: sơ đồ ghế kèm trạng thái từng ghế; sessionId có thể null (chưa giữ ghế nào). */
-    public SeatMapResponse getSeatMap(Long showtimeId, String sessionId) {
+    /** Bước 1: sơ đồ ghế kèm trạng thái từng ghế; userId null khi chưa đăng nhập. */
+    public SeatMapResponse getSeatMap(Long showtimeId, Long userId) {
         ShowtimeResponse showtime = showtimeService.getUpcomingShowtime(showtimeId);
         LocalDateTime now = LocalDateTime.now(clock);
         Map<Long, SeatHold> holds = seatHoldRepository.findActive(showtimeId, now).stream()
@@ -66,13 +65,13 @@ public class SeatHoldService {
         for (Seat seat : roomService.getSeats(showtime.room().id())) {
             SeatHold hold = holds.get(seat.getId());
             Availability status = hold == null ? Availability.AVAILABLE
-                    : isHeldBy(hold, sessionId) ? Availability.MINE : Availability.TAKEN;
+                    : isHeldBy(hold, userId) ? Availability.MINE : Availability.TAKEN;
             rows.computeIfAbsent(seat.getRowName(), k -> new ArrayList<>())
                     .add(new SeatMapResponse.Cell(seat.getId(), label(seat), seat.getNumber(), seat.getGridColumn(),
                             seat.getType(), status));
         }
         Integer secondsLeft = holds.values().stream()
-                .filter(h -> isHeldBy(h, sessionId))
+                .filter(h -> isHeldBy(h, userId))
                 .map(SeatHold::getExpiresAt)
                 .min(Comparator.naturalOrder())
                 .map(t -> secondsBetween(now, t))
@@ -92,20 +91,20 @@ public class SeatHoldService {
      * Không mở transaction trong lúc chờ queue.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public SeatHoldResponse requestHold(Long showtimeId, String sessionId, List<Long> seatIds) {
-        check(showtimeId, sessionId, seatIds, LocalDateTime.now(clock));
-        return seatHoldProducer.send(new SeatHoldCommand(showtimeId, sessionId, seatIds));
+    public SeatHoldResponse requestHold(Long showtimeId, Long userId, List<Long> seatIds) {
+        Selection selection = check(showtimeId, userId, seatIds, LocalDateTime.now(clock));
+        return seatHoldProducer.send(showtimeId, userId, List.copyOf(selection.selected()));
     }
 
     /**
      * Bước 3, chỉ consumer của queue gọi (xử lý lần lượt): kiểm tra lại trên trạng thái mới nhất, nhả giữ cũ của
-     * phiên này và giữ đã quá hạn, rồi ghi DANG_GIU hạn 10 phút trong một transaction.
+     * người này và giữ đã quá hạn, rồi ghi DANG_GIU hạn 10 phút trong một transaction.
      * Unique (suat_chieu_id, ghe_id) là lớp chặn cuối chống bán trùng.
      */
     @Transactional
-    public HoldOutcome holdSeats(Long showtimeId, String sessionId, List<Long> seatIds) {
+    public HoldOutcome holdSeats(Long showtimeId, Long userId, List<Long> seatIds) {
         LocalDateTime now = LocalDateTime.now(clock);
-        Selection selection = check(showtimeId, sessionId, seatIds, now);
+        Selection selection = check(showtimeId, userId, seatIds, now);
 
         seatHoldRepository.deleteAllInBatch(selection.toRelease());
         LocalDateTime expiresAt = now.plusMinutes(AppConstants.SEAT_HOLD_MINUTES);
@@ -113,7 +112,7 @@ public class SeatHoldService {
             SeatHold hold = new SeatHold();
             hold.setShowtimeId(showtimeId);
             hold.setSeatId(seatId);
-            hold.setSessionId(sessionId);
+            hold.setUserId(userId);
             hold.setStatus(SeatStatus.DANG_GIU);
             hold.setExpiresAt(expiresAt);
             return hold;
@@ -151,13 +150,13 @@ public class SeatHoldService {
     }
 
     /** Quy tắc chọn ghế (business-rules.md); ném BusinessException nếu vi phạm. */
-    private Selection check(Long showtimeId, String sessionId, List<Long> seatIds, LocalDateTime now) {
-        if (sessionId == null || sessionId.isBlank() || sessionId.length() > 64) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+    private Selection check(Long showtimeId, Long userId, List<Long> seatIds, LocalDateTime now) {
+        if (seatIds.isEmpty() || seatIds.size() > AppConstants.MAX_SEATS_PER_BOOKING) {
+            throw new BusinessException(ErrorCode.SEAT_COUNT_INVALID);
         }
         Set<Long> selected = new LinkedHashSet<>(seatIds);
-        if (selected.isEmpty() || selected.size() > AppConstants.MAX_SEATS_PER_BOOKING) {
-            throw new BusinessException(ErrorCode.SEAT_COUNT_INVALID);
+        if (selected.size() != seatIds.size()) { // một ghế xuất hiện hai lần
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
         ShowtimeResponse showtime = showtimeService.getUpcomingShowtime(showtimeId);
         List<Seat> seats = roomService.getSeats(showtime.room().id());
@@ -170,7 +169,7 @@ public class SeatHoldService {
         Set<Long> taken = new HashSet<>();
         for (SeatHold hold : seatHoldRepository.findByShowtimeId(showtimeId)) {
             boolean expired = hold.getStatus() == SeatStatus.DANG_GIU && !hold.getExpiresAt().isAfter(now);
-            if (expired || isHeldBy(hold, sessionId)) {
+            if (expired || isHeldBy(hold, userId)) {
                 toRelease.add(hold);
             } else {
                 taken.add(hold.getSeatId());
@@ -185,8 +184,8 @@ public class SeatHoldService {
         return new Selection(showtime, seatById, selected, toRelease);
     }
 
-    private static boolean isHeldBy(SeatHold hold, String sessionId) {
-        return hold.getStatus() == SeatStatus.DANG_GIU && hold.getSessionId().equals(sessionId);
+    private static boolean isHeldBy(SeatHold hold, Long userId) {
+        return hold.getStatus() == SeatStatus.DANG_GIU && userId != null && userId.equals(hold.getUserId());
     }
 
     private static String label(Seat seat) {

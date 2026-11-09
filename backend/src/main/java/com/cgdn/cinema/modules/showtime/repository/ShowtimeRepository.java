@@ -20,8 +20,9 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
                                        @Param("status") int status);
 
     @Query("""
-            select s from Showtime s join fetch s.room r
-            where s.id = :id and s.status = :status and r.status = :status and s.startTime > :after""")
+            select s from Showtime s join fetch s.room r join fetch r.cinema c
+            where s.id = :id and s.status = :status and r.status = :status and c.status = :status
+              and s.startTime > :after""")
     Optional<Showtime> findUpcomingById(@Param("id") Long id,
                                         @Param("after") LocalDateTime after,
                                         @Param("status") int status);

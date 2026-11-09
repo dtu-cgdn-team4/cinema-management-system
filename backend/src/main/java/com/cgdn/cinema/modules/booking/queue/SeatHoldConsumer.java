@@ -1,5 +1,7 @@
 package com.cgdn.cinema.modules.booking.queue;
 
+import java.time.Clock;
+import java.time.Instant;
 import com.cgdn.cinema.exception.BusinessException;
 import com.cgdn.cinema.exception.ErrorCode;
 import com.cgdn.cinema.infrastructure.messaging.RabbitConfig;
@@ -23,12 +25,16 @@ public class SeatHoldConsumer {
 
     private final SeatHoldService seatHoldService;
     private final SeatStatusBroadcaster seatStatusBroadcaster;
+    private final Clock clock;
 
     @RabbitListener(queues = RabbitConfig.SEAT_HOLD_QUEUE, concurrency = "1")
     public SeatHoldResult handle(SeatHoldCommand command) {
+        if (Instant.now(clock).isAfter(command.deadline())) { // người gửi đã thôi chờ và báo lỗi cho khách
+            return new SeatHoldResult(null, ErrorCode.SEAT_HOLD_UNAVAILABLE);
+        }
         try {
             SeatHoldService.HoldOutcome outcome =
-                    seatHoldService.holdSeats(command.showtimeId(), command.sessionId(), command.seatIds());
+                    seatHoldService.holdSeats(command.showtimeId(), command.userId(), command.seatIds());
             seatStatusBroadcaster.publish(command.showtimeId(), outcome.released(),
                     outcome.response().seats().stream().map(SeatHoldResponse.HeldSeat::id).toList());
             return new SeatHoldResult(outcome.response(), null);
