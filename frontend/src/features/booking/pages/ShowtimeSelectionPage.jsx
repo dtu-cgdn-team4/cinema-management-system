@@ -1,69 +1,81 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import AgeBadge from '../../../components/common/AgeBadge';
-import { toDateKey } from '../../../utils/format';
-import { getShowingMovies, getShowtimesByMovie } from '../api/showtimeApi';
+import { errorMessage } from '../../../services/apiClient';
+import { getCinemas, getShowingMovies, getShowtimes } from '../api/showtimeApi';
 import BookingHeader from '../components/BookingHeader';
+import CinemaPicker from '../components/CinemaPicker';
 import DateTabs from '../components/DateTabs';
-import SectionCard from '../components/SectionCard';
-import ShowtimeGrid from '../components/ShowtimeGrid';
+import MovieBanner from '../components/MovieBanner';
+import ShowtimeGroups from '../components/ShowtimeGroups';
 import TicketSummary from '../components/TicketSummary';
+import { bookingDates } from '../utils/bookingDates';
 import { validateShowtimeSelection } from '../utils/validateShowtimeSelection';
 
-/** SRS 6.2.1 Đặt vé – Chọn phim và suất chiếu. `?phim=<id>` chọn sẵn phim. */
+/** SRS 6.2.1 Đặt vé – Chọn phim và suất chiếu, giao diện theo khối đặt vé của Figma. `?phim=<id>` chọn sẵn phim. */
 export default function ShowtimeSelectionPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const movieId = Number(params.get('phim')) || null;
 
   const [movies, setMovies] = useState([]);
-  const [showtimes, setShowtimes] = useState([]);
+  const [cinemas, setCinemas] = useState([]);
+  const [city, setCity] = useState(null);
+  const [cinemaId, setCinemaId] = useState(null);
   const [date, setDate] = useState(null);
+  const [showtimes, setShowtimes] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showtimeId, setShowtimeId] = useState(null);
   const [error, setError] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    getShowingMovies().then(setMovies, () => setLoadError('Không tải được danh sách phim.'));
+    Promise.all([getShowingMovies(), getCinemas()]).then(
+      ([movieList, cinemaList]) => {
+        setMovies(movieList);
+        setCinemas(cinemaList);
+        setCity(cinemaList[0]?.city ?? null);
+        setCinemaId(cinemaList[0]?.id ?? null);
+      },
+      (err) => setLoadError(errorMessage(err)),
+    );
   }, []);
+
+  const movie = movies.find((m) => m.id === movieId);
+  const dates = useMemo(() => bookingDates(movie), [movie]);
+
+  useEffect(() => {
+    setDate(dates[0] ?? null);
+    setShowtimeId(null);
+  }, [dates]);
 
   useEffect(() => {
     setShowtimes([]);
-    setDate(null);
     setShowtimeId(null);
-    if (!movieId) return undefined;
+    if (!movieId || !cinemaId || !date) return undefined;
     let stale = false;
-    getShowtimesByMovie(movieId).then(
-      (list) => {
-        if (stale) return;
-        const sorted = [...list].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-        setShowtimes(sorted);
-        setDate(sorted[0] ? toDateKey(sorted[0].startTime) : null);
-      },
-      () => !stale && setLoadError('Không tải được suất chiếu.'),
-    );
+    setLoading(true);
+    getShowtimes(movieId, { cinemaId, date })
+      .then(
+        (list) => !stale && setShowtimes(list),
+        (err) => !stale && setLoadError(errorMessage(err)),
+      )
+      .finally(() => !stale && setLoading(false));
     return () => {
       stale = true;
     };
-  }, [movieId]);
+  }, [movieId, cinemaId, date]);
 
-  const movie = movies.find((m) => m.id === movieId);
-  const dates = useMemo(() => [...new Set(showtimes.map((s) => toDateKey(s.startTime)))], [showtimes]);
-  const dayShowtimes = showtimes.filter((s) => toDateKey(s.startTime) === date);
+  const cinema = cinemas.find((c) => c.id === cinemaId);
   const showtime = showtimes.find((s) => s.id === showtimeId);
 
-  const selectMovie = (id) => {
+  const selectCity = (name) => {
     setError(null);
-    setParams(id ? { phim: id } : {}, { replace: true });
+    setCity(name);
+    setCinemaId(cinemas.find((c) => c.city === name)?.id ?? null);
   };
-  const selectDate = (key) => {
+  const clearErrorAnd = (setter) => (value) => {
     setError(null);
-    setDate(key);
-    setShowtimeId(null);
-  };
-  const selectShowtime = (id) => {
-    setError(null);
-    setShowtimeId(id);
+    setter(value);
   };
 
   const submit = () => {
@@ -72,67 +84,73 @@ export default function ShowtimeSelectionPage() {
       setError(message);
       return;
     }
-    navigate(`/dat-ve/suat-chieu/${showtimeId}/chon-ghe`, { state: { movie, showtime } });
+    navigate(`/dat-ve/suat-chieu/${showtimeId}/chon-ghe`);
   };
 
   return (
     <div className="min-h-screen">
       <BookingHeader step={1} />
 
-      <main className="mx-auto max-w-[1216px] px-4 py-8">
-        <h1 className="font-display text-3xl font-bold text-white">Đặt vé</h1>
-        <p className="mt-1 text-sm text-muted">Chọn phim, ngày chiếu và suất chiếu để tiếp tục chọn ghế.</p>
+      <MovieBanner movie={movie}>
+        <label className="w-full text-[11px] text-muted">
+          <span className="mb-1 block">{movie ? 'Chọn phim khác' : 'Chọn phim'}</span>
+          <select
+            aria-label="Chọn phim"
+            value={movieId ?? ''}
+            onChange={(e) => {
+              setError(null);
+              const id = Number(e.target.value);
+              setParams(id ? { phim: id } : {}, { replace: true });
+            }}
+            className="w-full rounded-xl border border-line bg-card px-3 py-2 text-xs font-semibold text-white outline-none focus:border-brand"
+          >
+            <option value="">-- Phim đang chiếu --</option>
+            {movies.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title} ({m.ageRating})
+              </option>
+            ))}
+          </select>
+        </label>
+      </MovieBanner>
 
+      <main className="mx-auto max-w-[1216px] px-4 py-8 lg:px-0">
         {loadError && (
-          <p role="alert" className="mt-4 text-sm text-red-300">
+          <p role="alert" className="mb-4 text-sm text-red-300">
             {loadError}
           </p>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_384px]">
-          <div className="space-y-5">
-            <SectionCard title="1. Chọn phim" aside={`${movies.length} phim đang chiếu`}>
-              <select
-                aria-label="Chọn phim"
-                value={movieId ?? ''}
-                onChange={(e) => selectMovie(Number(e.target.value) || null)}
-                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-white outline-none focus:border-brand"
-              >
-                <option value="">-- Chọn phim đang chiếu --</option>
-                {movies.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title} ({m.ageRating})
-                  </option>
-                ))}
-              </select>
-              {movie && (
-                <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-                  <AgeBadge rating={movie.ageRating} />
-                  <span>{movie.duration} phút</span>
-                  <span>•</span>
-                  <span>{movie.genres.join(' / ')}</span>
-                </p>
-              )}
-            </SectionCard>
-
-            <SectionCard title="2. Chọn ngày xem phim">
-              {movieId ? (
-                <DateTabs dates={dates} value={date} onChange={selectDate} />
-              ) : (
-                <p className="text-sm text-muted">Chọn phim để xem ngày chiếu.</p>
-              )}
-            </SectionCard>
-
-            <SectionCard title="3. Suất chiếu có sẵn" aside="Bấm vào khung giờ để chọn">
-              {date ? (
-                <ShowtimeGrid showtimes={dayShowtimes} value={showtimeId} onChange={selectShowtime} />
-              ) : (
-                <p className="text-sm text-muted">Chọn ngày chiếu để xem suất chiếu.</p>
-              )}
-            </SectionCard>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_384px]">
+          <div className="min-w-0 space-y-5">
+            <DateTabs dates={dates} value={date} onChange={clearErrorAnd(setDate)} />
+            <CinemaPicker
+              cinemas={cinemas}
+              city={city}
+              cinemaId={cinemaId}
+              onCityChange={selectCity}
+              onCinemaChange={clearErrorAnd(setCinemaId)}
+            />
+            <ShowtimeGroups
+              cinemaName={cinema?.name}
+              showtimes={showtimes}
+              loading={loading}
+              value={showtimeId}
+              onChange={clearErrorAnd(setShowtimeId)}
+            />
           </div>
 
-          <TicketSummary movie={movie} date={date} showtime={showtime} error={error} onSubmit={submit} />
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <TicketSummary
+              movie={movie}
+              cinemaName={cinema?.name}
+              date={date}
+              showtime={showtime}
+              error={error}
+              onSubmit={submit}
+              submitLabel="Tiếp tục chọn ghế"
+            />
+          </div>
         </div>
       </main>
     </div>

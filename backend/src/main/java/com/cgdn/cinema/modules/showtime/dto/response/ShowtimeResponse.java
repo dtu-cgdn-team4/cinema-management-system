@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 public record ShowtimeResponse(
         Long id,
         Long movieId,
+        Long cinemaId,
+        String cinemaName,
         LocalDateTime startTime,
         LocalDateTime endTime,
         RoomInfo room,

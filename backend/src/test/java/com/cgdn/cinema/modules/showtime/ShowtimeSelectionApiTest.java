@@ -64,6 +64,30 @@ class ShowtimeSelectionApiTest {
     }
 
     @Test
+    void listsActiveCinemas() throws Exception {
+        JsonNode cinemas = getData("/api/v1/cinemas");
+
+        assertThat(cinemas.size()).isEqualTo(5);
+        assertThat(cinemas.findValuesAsText("city")).contains("Đà Nẵng", "TP. Hồ Chí Minh");
+    }
+
+    @Test
+    void filtersShowtimesByCinemaAndDate() throws Exception {
+        JsonNode all = getData("/api/v1/movies/1/showtimes");
+        long cinemaId = all.get(0).get("cinemaId").asLong();
+        String date = all.get(0).get("startTime").asText().substring(0, 10);
+
+        JsonNode filtered = getData("/api/v1/movies/1/showtimes?cinemaId=" + cinemaId + "&date=" + date);
+
+        assertThat(filtered.size()).isPositive().isLessThan(all.size());
+        for (JsonNode s : filtered) {
+            assertThat(s.get("cinemaId").asLong()).isEqualTo(cinemaId);
+            assertThat(s.get("cinemaName").asText()).isNotBlank();
+            assertThat(s.get("startTime").asText()).startsWith(date);
+        }
+    }
+
+    @Test
     void movieNotShowingReturns404() throws Exception {
         for (String id : List.of("5", "6", "999")) {
             mvc.perform(get("/api/v1/movies/" + id + "/showtimes"))
