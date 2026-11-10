@@ -38,7 +38,7 @@ public class SecurityConfig {
         conv.setJwtGrantedAuthoritiesConverter(jwt -> {
             try {
                 long id = Long.parseLong(jwt.getSubject());
-                Account a = accounts.byId(id).orElse(null);
+                Account a = accounts.findById(id).orElse(null);
                 if (a == null || !a.available(LocalDateTime.now(clock))) return List.of();
                 return List.of(new SimpleGrantedAuthority(a.authority()));
             } catch (IllegalArgumentException | AuthFailure ignored) { }

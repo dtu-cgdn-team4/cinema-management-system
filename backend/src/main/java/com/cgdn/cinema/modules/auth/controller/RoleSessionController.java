@@ -12,7 +12,7 @@ public class RoleSessionController {
     public RoleSessionController(AccountRepository accounts) { this.accounts = accounts; }
     @GetMapping({"/api/admin/session", "/api/staff/session", "/api/user/session"})
     public AuthDtos.User session(@AuthenticationPrincipal Jwt jwt) {
-        return AuthDtos.User.of(accounts.byId(Long.parseLong(jwt.getSubject())).orElseThrow());
+        return AuthDtos.User.of(accounts.findById(Long.parseLong(jwt.getSubject())).orElseThrow());
     }
 }
 

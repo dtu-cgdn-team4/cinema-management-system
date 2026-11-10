@@ -26,40 +26,39 @@ public class AuthService {
     }
     @Transactional(noRollbackFor=AuthFailure.class)
     public AuthDtos.Session login(AuthDtos.Login input) {
-        Account a = accounts.byEmailForUpdate(input.email().trim().toLowerCase(Locale.ROOT)).orElse(null);
+        Account a = accounts.findByEmailForUpdate(input.email().trim().toLowerCase(Locale.ROOT)).orElse(null);
         if (a == null) {
             passwords.matches(input.password(), dummyPassword);
             throw badCredentials();
         }
         ensureAvailable(a);
-        if (a.password() == null || input.password().getBytes(StandardCharsets.UTF_8).length > 72
+        if (a.password() == null || a.password().isBlank() || input.password().getBytes(StandardCharsets.UTF_8).length > 72
                  || !passwords.matches(input.password(), a.password())) {
-            accounts.failed(a, LocalDateTime.now(clock));
-            if (a.failures() >= 4) throw locked();
+            if (a.recordFailure()) throw locked();
             throw badCredentials();
         }
-        accounts.clearFailures(a.id());
+        a.clearFailures();
         return tokens.issue(a, input.rememberMe());
     }
     @Transactional
     public AuthDtos.Session google(AuthDtos.Google input) {
         var identity = google.verify(input.token());
-        Account a = accounts.byGoogleForUpdate(identity.subject()).orElse(null);
+        Account a = accounts.findByGoogleIdForUpdate(identity.subject()).orElse(null);
         if (a == null) {
-            a = accounts.byEmailForUpdate(identity.email()).orElse(null);
+            a = accounts.findByEmailForUpdate(identity.email()).orElse(null);
             if (a == null) {
-                a = accounts.createGoogle(identity.email(), identity.name(), identity.subject());
+                a = accounts.save(Account.createGoogle(identity.email(), identity.name(), identity.subject()));
             } else {
                 ensureAvailable(a);
                 // Google is not authoritative for arbitrary third-party email addresses.
                 if (!identity.authoritativeEmail() || (a.googleId() != null && !a.googleId().equals(identity.subject()))) {
                     throw new AuthFailure(HttpStatus.CONFLICT, "Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu.");
                 }
-                accounts.linkGoogle(a.id(), identity.subject());
+                a.linkGoogle(identity.subject());
             }
         }
         ensureAvailable(a);
-        accounts.clearFailures(a.id());
+        a.clearFailures();
         return tokens.issue(a, input.rememberMe());
     }
     private void ensureAvailable(Account a) {

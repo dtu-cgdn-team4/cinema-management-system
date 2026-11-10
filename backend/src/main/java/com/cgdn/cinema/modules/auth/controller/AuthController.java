@@ -40,7 +40,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public AuthDtos.User me(@AuthenticationPrincipal Jwt jwt) {
-        return AuthDtos.User.of(accounts.byId(Long.parseLong(jwt.getSubject())).orElseThrow());
+        return AuthDtos.User.of(accounts.findById(Long.parseLong(jwt.getSubject())).orElseThrow());
     }
 
     @PostMapping("/logout")
@@ -49,4 +49,3 @@ public class AuthController {
         return new AuthDtos.Message("Đã đăng xuất các phiên của tài khoản.");
     }
 }
-
