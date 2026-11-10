@@ -1,3 +1,9 @@
+/**
+ * Tên tệp: Hộp thoại xác nhận xóa mềm phim (SoftDeleteMovieModal.jsx)
+ * Tên tệp tiếng Việt: Hộp thoại xác nhận ngừng phát hành phim
+ * Chức năng: Hiển thị modal xác nhận ngừng chiếu bộ phim (Frame 2 - node 1308:13022 & 1568:981 trong Figma).
+ * Đảm bảo thông điệp nghiệp vụ: không xóa vật lý khỏi cơ sở dữ liệu và bảo toàn toàn bộ lịch sử đặt vé.
+ */
 import { useEffect } from 'react';
 import { formatDate } from '../../../utils/format';
 import { MOVIE_STATUS_META } from '../api/mockMoviesData';
@@ -9,6 +15,7 @@ export default function SoftDeleteMovieModal({
   onClose,
   onConfirm,
 }) {
+  // Lắng nghe sự kiện phím Escape để đóng hộp thoại nhanh
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -22,6 +29,7 @@ export default function SoftDeleteMovieModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isSubmitting, onClose]);
 
+  // Nếu modal không mở hoặc không có dữ liệu phim thì không render
   if (!isOpen || !movie) return null;
 
   const statusMeta = MOVIE_STATUS_META[movie.status] ?? MOVIE_STATUS_META.NOW_SHOWING;

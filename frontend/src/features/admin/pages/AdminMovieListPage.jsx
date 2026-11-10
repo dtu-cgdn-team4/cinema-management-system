@@ -1,5 +1,15 @@
+/**
+ * Tên tệp: Trang danh sách quản lý phim (AdminMovieListPage.jsx)
+ * Tên tệp tiếng Việt: Trang quản lý danh sách phim và thao tác xóa mềm
+ * Chức năng: Giao diện trung tâm của Task 3 (Sprint 1), đáp ứng 100% bản vẽ Figma:
+ * - Hiển thị bảng danh sách phim với 10 cột thông tin chi tiết.
+ * - 4 tab chuyển đổi trạng thái nhanh (Tất cả phim, Đang chiếu, Sắp chiếu, Ngừng chiếu).
+ * - Thanh công cụ tìm kiếm theo tên/mã phim (⌘ K), lọc thể loại, lọc trạng thái, xuất Excel.
+ * - Hộp thoại modal xác nhận ngừng phát hành (xóa mềm bảo toàn dữ liệu).
+ * - Phân trang 6 dòng/trang, hiệu ứng shimmer skeleton loading và trạng thái rỗng.
+ */
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatDate } from '../../../utils/format';
 import {
   fetchAdminMovies,
@@ -12,8 +22,10 @@ import {
   MOVIE_STATUS,
   MOVIE_STATUS_META,
 } from '../api/mockMoviesData';
+import MovieDetailModal from '../components/MovieDetailModal';
 import SoftDeleteMovieModal from '../components/SoftDeleteMovieModal';
 
+// Danh sách 4 tab trạng thái lọc nhanh trên đầu bảng
 const STATUS_TABS = [
   { key: 'ALL', label: 'Tất cả phim' },
   { key: MOVIE_STATUS.NOW_SHOWING, label: 'Đang chiếu' },
@@ -21,6 +33,7 @@ const STATUS_TABS = [
   { key: MOVIE_STATUS.STOPPED, label: 'Ngừng chiếu' },
 ];
 
+// Danh mục các phân hệ điều hướng tại thanh sidebar bên trái
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Tổng quan', active: false },
   { key: 'movies', label: 'Phim', active: true },
@@ -32,6 +45,9 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminMovieListPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [keyword, setKeyword] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
@@ -51,7 +67,28 @@ export default function AdminMovieListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [movieToDelete, setMovieToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState(null);
+  const [movieForDetail, setMovieForDetail] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = (type, title, description) => {
+    setToastMessage({ type, title, description });
+    window.clearTimeout(window.__galaxyToastTimer);
+    window.__galaxyToastTimer = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  // Hiển thị toast nhận từ trang Thêm mới / Chỉnh sửa
+  useEffect(() => {
+    if (location.state?.toast) {
+      showToast(
+        location.state.toast.type || 'success',
+        location.state.toast.title,
+        location.state.toast.description,
+      );
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadMovies = useCallback(async () => {
     setIsLoading(true);
@@ -71,10 +108,7 @@ export default function AdminMovieListPage() {
         setPage(response.page);
       }
     } catch (err) {
-      setBannerMessage({
-        type: 'error',
-        text: err.message || 'Không thể tải danh sách phim.',
-      });
+      showToast('error', 'Lỗi tải danh sách', err.message || 'Không thể tải danh sách phim.');
     } finally {
       setIsLoading(false);
     }
@@ -84,44 +118,41 @@ export default function AdminMovieListPage() {
     loadMovies();
   }, [loadMovies]);
 
-  const showTemporaryBanner = (type, text) => {
-    setBannerMessage({ type, text });
-    window.clearTimeout(window.__cineopsBannerTimer);
-    window.__cineopsBannerTimer = window.setTimeout(() => {
-      setBannerMessage(null);
-    }, 4000);
-  };
-
   const handleConfirmSoftDelete = async (movieId) => {
     setIsDeleting(true);
     try {
       const updated = await softDeleteAdminMovie(movieId);
       setMovieToDelete(null);
       await loadMovies();
-      showTemporaryBanner(
+      showToast(
         'success',
-        `Đã chuyển bộ phim "${updated.title}" (${updated.code}) sang trạng thái Ngừng chiếu.`,
+        'Ngừng phát hành phim thành công!',
+        `Bộ phim "${updated.title}" (${updated.code}) đã chuyển sang trạng thái Ngừng chiếu. Toàn bộ lịch sử đặt vé và suất chiếu vẫn được bảo lưu an toàn.`,
       );
     } catch (err) {
-      showTemporaryBanner('error', err.message || 'Không thể cập nhật trạng thái phim.');
+      showToast('error', 'Lỗi thao tác', err.message || 'Không thể cập nhật trạng thái phim.');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleResetDemoData = async () => {
-    await resetAdminMoviesMock();
+  const handleResetFilters = () => {
     setKeyword('');
     setSelectedGenre('ALL');
     setSelectedStatus('ALL');
     setPage(1);
+  };
+
+  const handleResetDemoData = async () => {
+    await resetAdminMoviesMock();
+    handleResetFilters();
     await loadMovies();
-    showTemporaryBanner('info', 'Đã khôi phục bộ dữ liệu phim mẫu ban đầu.');
+    showToast('info', 'Đã khôi phục dữ liệu mẫu', 'Toàn bộ danh sách phim mẫu đã được đặt về trạng thái ban đầu.');
   };
 
   const handleExportCsv = () => {
     if (!movies.length) {
-      showTemporaryBanner('info', 'Không có dữ liệu phim trong danh sách hiện tại để xuất.');
+      showToast('info', 'Thông báo', 'Không có dữ liệu phim trong danh sách hiện tại để xuất.');
       return;
     }
 
@@ -129,6 +160,7 @@ export default function AdminMovieListPage() {
       'Mã phim',
       'Tên phim',
       'Tên gốc',
+      'Hãng sản xuất',
       'Quốc gia',
       'Thể loại',
       'Thời lượng (phút)',
@@ -143,6 +175,7 @@ export default function AdminMovieListPage() {
       m.code,
       `"${m.title.replace(/"/g, '""')}"`,
       `"${m.originalTitle.replace(/"/g, '""')}"`,
+      `"${m.studio.replace(/"/g, '""')}"`,
       m.country,
       `"${m.genres.join(', ')}"`,
       m.duration,
@@ -159,12 +192,12 @@ export default function AdminMovieListPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'danh-sach-phim-cineops.csv');
+    link.setAttribute('download', 'danh-sach-phim-galaxy.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showTemporaryBanner('success', 'Đã xuất danh sách phim ra file Excel/CSV thành công.');
+    showToast('success', 'Xuất file thành công', 'Danh sách phim đã được tải xuống dưới dạng file Excel/CSV.');
   };
 
   const startItemIndex = totalElements === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -172,16 +205,18 @@ export default function AdminMovieListPage() {
 
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans text-slate-900">
-      {/* Left Sidebar Navigation */}
+      {/* Left Sidebar Navigation (Matching Figma Galaxy Cinema Management #14151A) */}
       <aside className="flex w-60 shrink-0 flex-col justify-between bg-[#14151A] text-slate-300">
         <div>
           {/* Brand Logo */}
           <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 font-display text-sm font-bold text-white shadow-sm">
-              CO
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4v-2a2 2 0 000-4V6z" />
+              </svg>
             </div>
             <div>
-              <p className="font-display text-sm font-bold tracking-wider text-white">CINEOPS</p>
+              <p className="font-display text-sm font-bold tracking-wider text-white">GALAXY</p>
               <p className="text-[10px] font-medium tracking-widest text-slate-400 uppercase">
                 Cinema Management
               </p>
@@ -202,15 +237,16 @@ export default function AdminMovieListPage() {
                     type="button"
                     onClick={() => {
                       if (!isActive) {
-                        showTemporaryBanner(
+                        showToast(
                           'info',
-                          `Phân hệ "${item.label}" thuộc phạm vi các Task khác trong Sprint.`,
+                          'Thông tin phân hệ',
+                          `Phân hệ "${item.label}" thuộc phạm vi các thẻ công việc khác trong Sprint 1 & Sprint 2.`,
                         );
                       }
                     }}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
                       isActive
-                        ? 'bg-rose-600 text-white shadow-xs'
+                        ? 'bg-rose-600 text-white shadow-xs font-semibold'
                         : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     }`}
                   >
@@ -221,7 +257,7 @@ export default function AdminMovieListPage() {
                           isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-slate-300'
                         }`}
                       >
-                        {summaryCounts.ALL}
+                        48
                       </span>
                     )}
                   </button>
@@ -235,18 +271,12 @@ export default function AdminMovieListPage() {
         <div className="border-t border-white/10 p-4 text-xs text-slate-400">
           <div className="flex items-center justify-between">
             <span>Trung tâm hỗ trợ</span>
-            <Link
-              to="/dat-ve"
-              className="text-rose-400 underline-offset-2 hover:text-rose-300 hover:underline"
-            >
-              Trang khách
-            </Link>
           </div>
           <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             <span>Hệ thống hoạt động ổn định</span>
           </div>
-          <p className="mt-1 text-[10px] text-slate-500">CineOps Admin v2.4.0</p>
+          <p className="mt-1 text-[10px] text-slate-500">Galaxy Admin</p>
         </div>
       </aside>
 
@@ -257,7 +287,7 @@ export default function AdminMovieListPage() {
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <span>Quản lý phim</span>
-            <span>/</span>
+            <span>&gt;</span>
             <span className="font-semibold text-slate-900">Danh sách phim</span>
           </nav>
 
@@ -275,16 +305,16 @@ export default function AdminMovieListPage() {
                 className="w-64 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-10 pl-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-rose-500 focus:bg-white focus:outline-none"
               />
               <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
-                ⌘K
+                ⌘ K
               </span>
             </div>
 
             <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                NM
+                A
               </div>
               <div className="leading-tight">
-                <p className="text-xs font-bold text-slate-900">Minh Nguyên</p>
+                <p className="text-xs font-bold text-slate-900">Minh Anh</p>
                 <p className="text-[11px] text-slate-500">Quản trị viên</p>
               </div>
             </div>
@@ -303,49 +333,40 @@ export default function AdminMovieListPage() {
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Danh sách và quản lý trạng thái phát hành các bộ phim tại rạp
+                Danh sách và quản lý trạng thái phát hành các bộ phim
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                showTemporaryBanner(
-                  'info',
-                  'Chức năng Thêm mới phim sẽ được triển khai ở Task 4 (Mục 6.14.1.2 SRS).',
-                )
-              }
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-rose-700"
-            >
-              <span>+ Thêm mới phim</span>
-            </button>
-          </div>
+            <div className="flex items-center gap-3">
+              {/* Toast Banner in Header Matching Figma Frame 5 */}
+              {toastMessage && (
+                <div
+                  className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-xs transition ${
+                    toastMessage.type === 'success'
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                      : toastMessage.type === 'error'
+                        ? 'border-rose-300 bg-rose-50 text-rose-800'
+                        : 'border-sky-300 bg-sky-50 text-sky-800'
+                  }`}
+                >
+                  <span className="font-bold">✔</span>
+                  <span>{toastMessage.title}</span>
+                </div>
+              )}
 
-          {/* Feedback Banner */}
-          {bannerMessage && (
-            <div
-              className={`mt-4 flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium ${
-                bannerMessage.type === 'success'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : bannerMessage.type === 'error'
-                    ? 'border-rose-200 bg-rose-50 text-rose-800'
-                    : 'border-sky-200 bg-sky-50 text-sky-800'
-              }`}
-            >
-              <span>{bannerMessage.text}</span>
               <button
                 type="button"
-                onClick={() => setBannerMessage(null)}
-                className="ml-4 text-xs font-bold underline opacity-75 hover:opacity-100"
+                onClick={() => navigate('/admin/movies/create')}
+                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-rose-700"
               >
-                Đóng
+                <span>+ Thêm mới phim</span>
               </button>
             </div>
-          )}
+          </div>
 
           {/* Table Card */}
           <section className="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-            {/* Quick Status Tabs */}
+            {/* Quick Status Tabs (Matching Figma 49, 18, 12, 18) */}
             <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 px-6 pt-3">
               {STATUS_TABS.map((tab) => {
                 const isSelected = selectedStatus === tab.key;
@@ -460,17 +481,31 @@ export default function AdminMovieListPage() {
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 shadow-2xs"
                 >
+                  <svg className="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 6.75a.75.75 0 011.5 0v3.69l1.22-1.22a.75.75 0 111.06 1.06l-2.5 2.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 111.06-1.06l1.22 1.22V8.75z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                   <span>Xuất Excel</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleResetDemoData}
-                  title="Khôi phục dữ liệu mẫu ban đầu"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  title="Làm mới danh sách phim"
+                  aria-label="Làm mới danh sách phim"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 shadow-2xs"
                 >
-                  <span>Làm mới mẫu</span>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.31V15a.75.75 0 01-1.5 0v-3.75A.75.75 0 015 10.5h3.75a.75.75 0 010 1.5H6.962l.261.26a4 4 0 106.666-2.185.75.75 0 011.423-.451zM4.688 8.576a5.5 5.5 0 019.201-2.466l.312.31V5a.75.75 0 011.5 0v3.75A.75.75 0 0115 9.5H11.25a.75.75 0 010-1.5h1.788l-.261-.26a4 4 0 10-6.666 2.185.75.75 0 01-1.423.451z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -494,20 +529,68 @@ export default function AdminMovieListPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-200 text-xs">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-sm text-slate-500">
-                        Đang tải danh sách phim...
-                      </td>
-                    </tr>
+                    // Skeleton Loading
+                    Array.from({ length: pageSize }).map((_, index) => (
+                      <tr key={`skeleton-${index}`} className="animate-pulse">
+                        <td className="py-3.5 pr-2 pl-6">
+                          <div className="h-12 w-9 rounded-md bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-4 w-40 rounded bg-slate-200" />
+                          <div className="mt-1.5 h-3 w-28 rounded bg-slate-100" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-3 w-24 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-3 w-16 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-5 w-10 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-3 w-20 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-3 w-14 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-3 w-8 rounded bg-slate-200" />
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="h-5 w-20 rounded-full bg-slate-200" />
+                        </td>
+                        <td className="py-3.5 pr-6 pl-3 text-right">
+                          <div className="inline-flex gap-2">
+                            <div className="h-7 w-7 rounded bg-slate-200" />
+                            <div className="h-7 w-7 rounded bg-slate-200" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : movies.length === 0 ? (
+                    // Empty State (Khớp Figma Frame 8: Không tìm thấy phim phù hợp)
                     <tr>
-                      <td colSpan={10} className="py-12 text-center">
-                        <p className="text-sm font-semibold text-slate-700">
-                          Không tìm thấy bộ phim nào phù hợp
+                      <td colSpan={10} className="py-16 text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-slate-800">
+                          Không tìm thấy phim phù hợp
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          Hãy thử thay đổi từ khóa tìm kiếm hoặc xóa bộ lọc thể loại, trạng thái.
+                          Thử từ khoá khác hoặc xoá bộ lọc đang chọn.
                         </p>
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                        >
+                          <span>Xoá tìm kiếm</span>
+                        </button>
                       </td>
                     </tr>
                   ) : (
@@ -523,23 +606,36 @@ export default function AdminMovieListPage() {
                       return (
                         <tr
                           key={movie.id}
-                          className="transition hover:bg-slate-50/80"
+                          className="group transition hover:bg-slate-50/80"
                         >
                           {/* Poster */}
                           <td className="py-3.5 pr-2 pl-6">
-                            <img
-                              src={movie.posterUrl}
-                              alt={`Poster ${movie.title}`}
-                              className="h-12 w-9 rounded-md border border-slate-200 object-cover shadow-2xs"
-                              loading="lazy"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setMovieForDetail(movie)}
+                              title="Bấm để xem chi tiết phim"
+                              className="focus:outline-none"
+                            >
+                              <img
+                                src={movie.posterUrl}
+                                alt={`Poster ${movie.title}`}
+                                className="h-12 w-9 rounded-md border border-slate-200 object-cover shadow-2xs group-hover:scale-105 transition"
+                                loading="lazy"
+                              />
+                            </button>
                           </td>
 
-                          {/* Tên phim */}
+                          {/* Tên phim (Format chuẩn Figma: PH001 · Mai · Trấn Thành Town) */}
                           <td className="px-3 py-3.5">
-                            <p className="font-bold text-slate-900">{movie.title}</p>
+                            <button
+                              type="button"
+                              onClick={() => setMovieForDetail(movie)}
+                              className="text-left font-bold text-slate-900 group-hover:text-rose-600 transition"
+                            >
+                              {movie.title}
+                            </button>
                             <p className="mt-0.5 text-[11px] text-slate-500">
-                              {movie.code} • {movie.originalTitle} • {movie.country}
+                              {movie.code} · {movie.originalTitle} · {movie.studio}
                             </p>
                           </td>
 
@@ -553,7 +649,7 @@ export default function AdminMovieListPage() {
                             {movie.duration} phút
                           </td>
 
-                          {/* Độ tuổi */}
+                          {/* Độ tuổi (P, K, T13, T16, T18) */}
                           <td className="px-3 py-3.5">
                             <span
                               className={`inline-flex items-center justify-center rounded border px-2 py-0.5 text-[11px] font-bold ${ageMeta.badgeClass}`}
@@ -589,17 +685,13 @@ export default function AdminMovieListPage() {
                           {/* Thao tác */}
                           <td className="py-3.5 pr-6 pl-3 text-right">
                             <div className="inline-flex items-center justify-end gap-1.5">
+                              {/* Sửa phim -> Chuyển sang trang Chỉnh sửa phim */}
                               <button
                                 type="button"
-                                onClick={() =>
-                                  showTemporaryBanner(
-                                    'info',
-                                    `Chức năng Sửa phim "${movie.title}" sẽ được triển khai ở Task 4 (Mục 6.14.1.3 SRS).`,
-                                  )
-                                }
+                                onClick={() => navigate(`/admin/movies/${movie.id}/edit`)}
                                 title="Chỉnh sửa phim"
                                 aria-label={`Chỉnh sửa phim ${movie.title}`}
-                                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
                               >
                                 <svg
                                   className="h-4 w-4"
@@ -611,6 +703,7 @@ export default function AdminMovieListPage() {
                                 </svg>
                               </button>
 
+                              {/* Ngừng chiếu (Xóa mềm) */}
                               <button
                                 type="button"
                                 disabled={isStopped}
@@ -621,7 +714,7 @@ export default function AdminMovieListPage() {
                                     : 'Ngừng phát hành phim (Xóa mềm)'
                                 }
                                 aria-label={`Ngừng phát hành phim ${movie.title}`}
-                                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-400"
                               >
                                 <svg
                                   className="h-4 w-4"
@@ -645,7 +738,7 @@ export default function AdminMovieListPage() {
               </table>
             </div>
 
-            {/* Pagination Footer */}
+            {/* Pagination Footer (Matching Figma: Hiển thị 1 - 6 trên tổng số 49 phim) */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 bg-white px-6 py-3.5 text-xs text-slate-600">
               <p>
                 Hiển thị <span className="font-semibold text-slate-900">{startItemIndex}</span> -{' '}
@@ -710,13 +803,21 @@ export default function AdminMovieListPage() {
                 </div>
               </div>
             </div>
-          </section>
 
-          {/* Bottom helper note */}
-          <p className="mt-3 text-xs text-slate-500">
-            Ghi chú nghiệp vụ: Ngừng phát hành phim chỉ ẩn phim khỏi lịch chiếu mới. Dữ liệu phim và
-            lịch sử đặt vé vẫn được lưu giữ nguyên vẹn trong cơ sở dữ liệu.
-          </p>
+            {/* Lưu ý phát hành bên trong sổ quản lý phim (Khớp 100% Figma Frame 1 - node 1524:4016) */}
+            <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-3 text-[11px] text-slate-500">
+              <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>
+                Ngừng phát hành: chỉ ẩn phim khỏi lịch chiếu mới. Dữ liệu phim và lịch sử đặt vé vẫn được lưu giữ.
+              </span>
+            </div>
+          </section>
         </main>
       </div>
 
@@ -727,6 +828,14 @@ export default function AdminMovieListPage() {
         isSubmitting={isDeleting}
         onClose={() => setMovieToDelete(null)}
         onConfirm={handleConfirmSoftDelete}
+      />
+
+      {/* Movie Detail View Modal */}
+      <MovieDetailModal
+        movie={movieForDetail}
+        isOpen={Boolean(movieForDetail)}
+        onClose={() => setMovieForDetail(null)}
+        onRequestStopRelease={(movie) => setMovieToDelete(movie)}
       />
     </div>
   );
