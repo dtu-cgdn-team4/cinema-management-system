@@ -37,12 +37,12 @@ export default function MovieCard({ movie }) {
         </div>
 
         {/* Rating Score Badge (Bottom Left of Poster) */}
-        {movie.rating > 0 && (
+        {/* {movie.rating > 0 && (
           <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-white font-bold text-xs shadow-lg">
             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
             <span>{movie.rating.toFixed(1)}</span>
           </div>
-        )}
+        )} */}
 
         {/* Formats badge (Bottom Right of Poster) */}
         {movie.formats && movie.formats.length > 0 && (

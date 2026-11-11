@@ -10,8 +10,8 @@ export default function Header() {
   const location = useLocation();
 
   const navLinks = [
+    { name: 'Trang chủ', path: '/home', icon: Film },
     { name: 'Phim', path: '/movies', icon: Film },
-    { name: 'Lịch chiếu', path: '/showtimes', icon: Ticket },
     { name: 'Rạp/Giá vé', path: '/cinemas', icon: MapPin },
     { name: 'Ưu đãi', path: '/promotions', icon: Gift },
   ];

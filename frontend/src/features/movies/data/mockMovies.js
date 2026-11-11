@@ -236,7 +236,7 @@ export const GENRE_OPTIONS = [
 
 export const SORT_OPTIONS = [
   { label: 'Theo đề xuất', value: 'recommended' },
-  { label: 'Đánh giá cao nhất', value: 'rating_desc' },
+  // { label: 'Đánh giá cao nhất', value: 'rating_desc' },
   { label: 'Mới nhất', value: 'release_desc' },
   { label: 'Thời lượng tăng dần', value: 'duration_asc' },
   { label: 'Thời lượng giảm dần', value: 'duration_desc' },
